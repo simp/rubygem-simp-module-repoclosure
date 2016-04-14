@@ -1,4 +1,5 @@
 require 'simp/module/repoclosure/version'
+require 'simp/module/metadata'
 require 'json'
 require 'yaml'
 require 'pry'
@@ -19,9 +20,9 @@ module Simp
           Dir.mktmpdir('fakeforge_tut_dir_') do |tut_dir|
             Dir.mktmpdir('fakeforge_pupmod_install_dir_') do |pupmod_install_dir|
               puppetfile = @metadata.to_puppetfile
-              File.open( File.join( mut_dir, 'Puppetfile' ), 'w' ){|f| f.puts result }
+              File.open( File.join( mut_dir, 'Puppetfile' ), 'w' ){|f| f.puts puppetfile }
               FileUtils.chdir mut_dir
-              `r10k puppetfile checkout`
+              `r10k puppetfile install`
             end
           end
         end

@@ -38,7 +38,7 @@ module Simp
              if _details.is_a?(String)
                details = "\n  :git => '#{_details}'"
              elsif (_details.is_a?(Hash) && _details.key?('repo') && _details.key?('ref') )
-               details =  "\n  :git => '#{_details['repo']}'"
+               details =  "\n  :git => '#{_details['repo']}',"
                details += "\n  :ref => '#{_details['ref']}'"
              else
                fail "ERROR: Unrecognized syntax in .fixtures.yml:\n---\n#{_details}'\n---\n"

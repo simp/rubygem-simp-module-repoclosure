@@ -31,7 +31,7 @@ describe Simp::Module::Metadata do
         ci = Simp::Module::Metadata.new( metadata_json )
         puts text = ci.to_puppetfile()
         expect( text ).not_to match( /^mod 'stdlib', '/ )
-        expect( text ).to match( /^mod 'stdlib',\s*\n\s*:git\s*=>\s*'.*\n\s*:ref/ )
+        expect( text ).to match( /^mod 'stdlib',\s*\n\s*:git\s*=>\s*'.*,\s*\n\s*:ref/ )
       end
     end
   end

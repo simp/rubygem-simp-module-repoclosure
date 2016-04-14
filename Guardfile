@@ -43,11 +43,11 @@ end
 
 # Run rspec tests when things change
 guard :rspec, cmd: 'bundle exec rspec ' do
-  watch(%r{^spec/.+_spec\.rb$})
+  watch(%r{^spec/lib/.+_spec\.rb$})
 
   # when a file changes run the tests for that file
   watch(%r{^lib/(.+)\.rb$}) do |m|
-    File.join( 'spec', "#{File.basename(m[1])}_spec.rb" )
+    File.join( 'spec', 'lib', "#{m[1]}_spec.rb" )
   end
 
   watch('spec/spec_helper.rb')  { "spec" }
