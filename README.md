@@ -2,7 +2,7 @@
 [![License](http://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
 # simp-module-repoclosure
 
-TODO: Summary
+A ~~stupidly~~ admirably direct repoclosure for a Puppet module's `metadata.json`.  Test your modules's dependency declarations by committing **Puppet Forgery!**
 
 #### Table of Contents
 1. [Overview](#overview)
@@ -15,7 +15,8 @@ TODO: Summary
 
 ## Overview
 
-~~Stupidly~~ Admirably direct repoclosure for a Puppet module's `metadata.json`
+This gem validates the dependencies declared in a Puppet module's `metadata.json`.
+  * It does this by by running `puppet module install` against a local Puppet Forge and saving the results into a temporary `modulepath`.
 
 ## Setup
 

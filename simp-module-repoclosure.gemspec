@@ -7,7 +7,7 @@ require 'simp/module/repoclosure/version'
 Gem::Specification.new do |gem|
   gem.name          = "simp-module-repoclosure"
   gem.version       = Simp::Module::Repoclosure::VERSION
-  gem.summary       = %q{TODO: Summary}
+  gem.summary       = %q{Test Puppet modules' dependency declarations with a local Puppet Forge}
   gem.description   = %q{~~Stupidly~~ Admirably direct repoclosure for a Puppet module's `metadata.json`}
   gem.license       = "Apache-2.0"
   gem.authors       = ["Chris Tessmer"]
@@ -30,7 +30,9 @@ Gem::Specification.new do |gem|
   gem.require_paths = ['lib']
 
   gem.add_development_dependency 'bundler', '~> 1.10'
-  gem.add_development_dependency 'rake', '~> 10.0'
-  gem.add_development_dependency 'rspec', '~> 3.0'
-  gem.add_development_dependency 'yard', '~> 0.8'
+  gem.add_development_dependency 'rake',    '~> 10.0'
+  gem.add_development_dependency 'rspec',   '~> 3.0'
+  gem.add_development_dependency 'yard',    '~> 0.8'
+  gem.add_runtime_dependency     'r10k',    '~> 2.2'
+
 end

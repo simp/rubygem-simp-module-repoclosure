@@ -11,7 +11,8 @@ end
 require 'rake'
 
 require 'rspec/core/rake_task'
-RSpec::Core::RakeTask.new
+r = RSpec::Core::RakeTask.new
+r.exclude_pattern = 'spec/files/**/*/**/*_spec.rb'
 
 task :test    => :spec
 task :default => :spec

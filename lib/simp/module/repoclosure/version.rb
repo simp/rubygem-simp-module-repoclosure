@@ -19,7 +19,7 @@
 
 module Simp
   module Module
-    module Repoclosure
+    class Repoclosure
       # simp-module-repoclosure version
       VERSION = "0.1.0"
     end

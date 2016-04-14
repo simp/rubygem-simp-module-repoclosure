@@ -1,0 +1,9 @@
+---
+fixtures:
+  repositories:
+    simplib: "git://github.com/simp/pupmod-simp-simplib.git"
+    stdlib: 
+      repo: "https://github.com/simp/puppetlabs-stdlib.git"
+      ref: "61333cfc48026af204483d681bd8b10cb44d6fc6"
+  symlinks:
+    module02: "#{source_dir}"
