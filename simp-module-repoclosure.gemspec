@@ -36,5 +36,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency     'r10k',    '~> 2.2'
   gem.add_runtime_dependency     'puppet'
   gem.add_runtime_dependency     'parallel', '~> 1.8'
+  gem.add_runtime_dependency     'puppet-forge-server', '~> 1.9'
+
 
 end
