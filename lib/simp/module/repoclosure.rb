@@ -5,11 +5,8 @@ require 'yaml'
 require 'pry'
 require 'tmpdir'
 require 'fileutils'
-require 'r10k/puppetfile'
 require 'puppet_forge_server'
 require 'parallel'
-#require 'puppet_forge_server/backends/directory'
-#require 'puppet_forge_server/app/version3'
 
 
 
@@ -27,23 +24,23 @@ module Simp
       def do
         Dir.chdir '/tmp'
         Dir.mktmpdir('fakeforge_mut_dir_') do |mut_dir|
+puts '### 1'
           download_pupmods_into mut_dir
-          Dir.chdir '/tmp'
 
           Dir.mktmpdir('fakeforge_tut_dir_') do |tut_dir|
+puts '### 5'
             package_tarballs mut_dir, tut_dir
-            Dir.chdir '/tmp'
 
 
 
             Dir.mktmpdir('fakeforge_pupmod_inst_dir_') do |pupmod_install_dir|
               # TODO: fire up fake forge in parallel process
+puts '### 10'
 
 
 
-              Dir.chdir '/tmp'
-              forge_be = PuppetForgeServer::Backends::Directory.new(tut_dir,false)
-              forge_server = PuppetForgeServer::App::Version3.new [forge_be]
+#              forge_be = PuppetForgeServer::Backends::Directory.new(tut_dir,false)
+#              forge_server = PuppetForgeServer::App::Version3.new [forge_be]
 
               binding.pry
               Parallel.map([1,2], in_processes: 2) do |x|
@@ -55,7 +52,7 @@ module Simp
                   ])
                 elsif x == 2
                   sleep 5
-                  cmd = "puppet module install test-module02 --module_repository=http://localhost:8080 --modulepath=#{pupmod_install_dir}"
+                  cmd = "puppet module install #{@metadata.fetch('name')} --module_repository=http://localhost:8080 --modulepath=#{pupmod_install_dir}"
                   puts cmd
                   puts `#{cmd}`
                 end
@@ -69,19 +66,12 @@ module Simp
       def download_pupmods_into mut_dir
         FileUtils.chdir mut_dir
         mod_dir = File.join(mut_dir,'modules')
+        FileUtils.mkdir_p mod_dir
         puppetfile = @metadata.to_puppetfile
         File.open( File.join( mut_dir, 'Puppetfile' ), 'w' ){|f| f.puts puppetfile }
-        binding.pry
-        r10k_pf   = R10K::Puppetfile.new( mut_dir )
-        r10k_mods = r10k_pf.load!
-        r10k_mods.each do |mod|
-          puts "==== r10k: syncing pupmod '#{mod.name}' into '#{Dir.pwd}'" unless @verbose == 0
-          mod.sync
-        end
 
-        binding.pry
+        puts `bundle exec librarian-puppet-pr328 install --path=#{mod_dir}`
         # copy in MUT
-        FileUtils.mkdir_p mod_dir
         FileUtils.cp_r @module_dir, File.join(mod_dir,File.basename(@module_dir))
       end
 
@@ -104,13 +94,15 @@ module Simp
           end
           env_globals_line = env_globals.join(' ')
           Bundler.with_clean_env do
-            ['bundle update',
-             'bundle exec rake build'].each do |cmd|
+            [#'bundle update',
+             #'bundle exec rake build'
+             'rake build'].each do |cmd|
               line = "#{env_globals_line} #{cmd}"
-              puts "==== EXECUTING: #{line}" unless @verbose == 0
+              puts "==== EXECUTING: '#{line}' in '#{Dir.pwd}'" unless @verbose == 0
               opts = {}
               opts = {:out => :close, :err => :close} if @verbose == 0
               exit 1 unless system(line, opts)
+              puts "====== done with '#{line}'"
             end
           end
           Dir[File.join(Dir.pwd,'pkg','*.tar.gz')].each do |tgz|

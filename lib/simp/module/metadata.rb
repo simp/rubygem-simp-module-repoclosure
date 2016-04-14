@@ -4,7 +4,6 @@ require 'yaml'
 require 'pry'
 require 'tmpdir'
 require 'fileutils'
-require 'r10k/puppetfile'
 
 module Simp
   module Module
@@ -23,7 +22,8 @@ module Simp
 
       # generate Puppetfile String from metadata.json & .fixtures.yml
       def to_puppetfile
-       result = ""
+       forge = ENV['PUPPET_FORGE'] || 'https://forgeapi.puppetlabs.com'
+       result = %Q(forge "#{forge}"\n)
 
        @metadata.fetch('dependencies').each do |dep|
          name    =  dep['name'].sub('-','/')
@@ -32,9 +32,9 @@ module Simp
          # git
          if @xref_fixtures && @fixtures
            fix_repos = @fixtures['fixtures'].fetch('repositories',{})
-           if fix_repos.key?  dep['name'].sub(/^[^-]+-/,'')
-             name     =  dep['name'].sub(/^[^-]+-/,'')
-             _details = fix_repos[name]
+           _name = dep['name'].sub(/^[^-]+-/,'')
+           if fix_repos.key? _name
+             _details = fix_repos[_name]
 
              if _details.is_a?(String)
                details = "\n  :git => '#{_details}'"
