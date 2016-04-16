@@ -17,3 +17,4 @@
 /vendor/cache/*.gem
 Gemfile.lock
 /tmp
+pkg/

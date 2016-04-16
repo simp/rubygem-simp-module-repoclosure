@@ -13,73 +13,108 @@ require 'parallel'
 module Simp
   module Module
     class Repoclosure
-      attr_accessor :verbose
+      attr_accessor :verbose, :port
       def initialize( module_dir )
         @module_dir = module_dir
+
+        # Puppet Forge to download dependencie modules from
+        @upstream_puppet_forge='https://forgeapi.puppetlabs.com'
+
+
         metadata_json = File.join( module_dir, 'metadata.json' )
         @metadata = Simp::Module::Metadata.new(metadata_json)
-        @verbose = 0
+        @verbose = ENV.fetch('VERBOSE', 0).to_i
+        @port    = ENV['TEMP_FORGE_PORT'] || 8080
       end
 
       def do
         Dir.chdir '/tmp'
-        Dir.mktmpdir('fakeforge_mut_dir_') do |mut_dir|
-puts '### 1'
-          download_pupmods_into mut_dir
+        tmp_dirs = []
 
-          Dir.mktmpdir('fakeforge_tut_dir_') do |tut_dir|
-puts '### 5'
-            package_tarballs mut_dir, tut_dir
+        # directory containing tarballs for fake forge
+        tut_dir = ENV.fetch('FAKE_FORGE_tarball_dir', nil)
 
+        # directory containing modules
+        mut_dir = ENV.fetch('FAKE_FORGE_module_dir', nil)
 
-
-            Dir.mktmpdir('fakeforge_pupmod_inst_dir_') do |pupmod_install_dir|
-              # TODO: fire up fake forge in parallel process
-puts '### 10'
-
-
-
-#              forge_be = PuppetForgeServer::Backends::Directory.new(tut_dir,false)
-#              forge_server = PuppetForgeServer::App::Version3.new [forge_be]
-
-              binding.pry
-              Parallel.map([1,2], in_processes: 2) do |x|
-            Dir.chdir '/tmp'
-                if x == 1
-                  PuppetForgeServer::Server.new.go([
-                    '-p','8080','-b','localhost','-m',tut_dir,
-                    '-D','--pidfile',File.join(mut_dir,'fakeforge.pidfile')
-                  ])
-                elsif x == 2
-                  sleep 5
-                  cmd = "puppet module install #{@metadata.fetch('name')} --module_repository=http://localhost:8080 --modulepath=#{pupmod_install_dir}"
-                  puts cmd
-                  puts `#{cmd}`
-                end
-              end
+        module_dir = @module_dir
+        begin
+          if tut_dir.nil?
+            tmp_dirs << tut_dir = Dir.mktmpdir('fakeforge_tut_dir_')
+            if mut_dir.nil?
+              tmp_dirs << mut_dir = Dir.mktmpdir('fakeforge_mut_dir_')
             end
+          else
+            fail "**************** TODO: just use the dir"
+          end
+
+          download_pupmods( module_dir, mut_dir )
+          binding.pry
+          package_tarballs( mut_dir, tut_dir )
+
+          Dir.mktmpdir('fakeforge_pupmod_inst_dir_') do |pupmod_install_dir|
+        Dir.chdir '/tmp'
+            success = run_fake_forge( tut_dir, pupmod_install_dir )
+puts "success = '#{success}'"
+          end
+        ensure
+          tmp_dirs.each do |dir|
+        Dir.chdir '/tmp'
+            FileUtils.remove_entry dir, :verbose => (@verbose > 0)
           end
         end
       end
 
-      # use r10k to install temporary pupmods
-      def download_pupmods_into mut_dir
-        FileUtils.chdir mut_dir
-        mod_dir = File.join(mut_dir,'modules')
-        FileUtils.mkdir_p mod_dir
-        puppetfile = @metadata.to_puppetfile
-        File.open( File.join( mut_dir, 'Puppetfile' ), 'w' ){|f| f.puts puppetfile }
 
-        puts `bundle exec librarian-puppet-pr328 install --path=#{mod_dir}`
-        # copy in MUT
-        FileUtils.cp_r @module_dir, File.join(mod_dir,File.basename(@module_dir))
+      def run_fake_forge(  tut_dir, pupmod_install_dir )
+        success = false
+        cmd = "puppet module install #{@metadata.metadata.fetch('name')} --module_repository=http://localhost:#{@port} --modulepath=#{pupmod_install_dir}  --target-dir=#{pupmod_install_dir}"
+        puts cmd
+        pidfile = File.join(mut_dir,'fakeforge.pidfile')
+
+        Parallel.map([1,2], in_processes: 2) do |x|
+          Dir.chdir '/tmp'
+          if x == 1
+            puts "Starting fake forge (pidfile: '#{pidfile}'"
+            PuppetForgeServer::Server.new.go([
+              '-p', @port,
+              '-b', 'localhost', '-m', tut_dir, '--pidfile', pidfile
+            ])
+          elsif x == 2
+            sleep 5
+            success = system(cmd)
+            puts "$? = '#{$?}'"
+    puts "success = '#{success}'"
+            raise Parallel::Kill  # stops both Parallels
+          end
+        end
+puts "success = '#{success}'"
+        return success
       end
+
+
+      def download_pupmods( module_dir, mut_dir )
+        # build a puppet module_dir into an archive
+        FileUtils.chdir module_dir, :verbose => (@verbose > 0 )
+        cmd = "puppet module build  --render-as=json"
+        puts cmd if @verbose > 0
+        tgz = `#{cmd}`.split("\n").last.gsub('"','')
+        puts "built module archive: #{tgz}" if @verbose > 0
+
+        cmd = "puppet module install #{tgz} --module_repository=#{@upstream_puppet_forge} --modulepath=#{mut_dir}  --target-dir=#{mut_dir}"
+        puts cmd if @verbose > 0
+        out = `#{cmd}`
+        puts out if @verbose > 0
+      end
+
+
+
 
       def package_tarballs( mut_dir, tut_dir )
         pwd = Dir.pwd
         Dir[File.join(mut_dir, 'modules', '*')].each do |f|
           next unless File.directory? f
-          FileUtils.chdir f
+          FileUtils.chdir f, :verbose => (@verbose > 0)
           # propagate relevant environment variables
           env_globals = []
           [
@@ -94,21 +129,21 @@ puts '### 10'
           end
           env_globals_line = env_globals.join(' ')
           Bundler.with_clean_env do
-            [#'bundle update',
+            [
+             #'bundle update',
              #'bundle exec rake build'
-             'rake build'].each do |cmd|
+             'rake build'
+            ].each do |cmd|
               line = "#{env_globals_line} #{cmd}"
-              puts "==== EXECUTING: '#{line}' in '#{Dir.pwd}'" unless @verbose == 0
               opts = {}
               opts = {:out => :close, :err => :close} if @verbose == 0
               exit 1 unless system(line, opts)
-              puts "====== done with '#{line}'"
             end
           end
           Dir[File.join(Dir.pwd,'pkg','*.tar.gz')].each do |tgz|
-            FileUtils.cp tgz, tut_dir
+            FileUtils.cp tgz, tut_dir, :verbose => (@verbose > 0)
           end
-          FileUtils.chdir pwd
+          FileUtils.chdir pwd, :verbose => (@verbose > 0)
         end
       end
     end

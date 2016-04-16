@@ -8,6 +8,7 @@ require 'fileutils'
 module Simp
   module Module
     class Metadata
+      attr_reader :metadata, :fixtures
       def initialize( metadata_json_path )
         @metadata = JSON.parse(File.read(metadata_json_path))
         @xref_fixtures = true

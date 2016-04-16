@@ -1,7 +1,5 @@
 # encoding: utf-8
 
-require 'rubygems'
-
 begin
   require 'bundler/setup'
 rescue LoadError => e
@@ -9,6 +7,12 @@ rescue LoadError => e
 end
 
 require 'rake'
+require 'rake/clean'
+
+CLEAN << '*.gem'
+CLEAN << 'tmp/'
+CLEAN << 'pkg/'
+CLOBBER << '*.gem'
 
 require 'rspec/core/rake_task'
 r = RSpec::Core::RakeTask.new
