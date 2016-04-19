@@ -12,7 +12,7 @@ describe Simp::Module::Repoclosure do
   end
 
   describe '#download_pupmod_deps' do
-    it 'downloads pupmods into the mut directory (forge)' do
+    it 'downloads pupmod deps into the mut directory' do
       module_dir = path_to_mock_module('module01')
       Dir.mktmpdir('fakeforge_spec_test_mut_dir_') do |tut_dir|
         Dir.mktmpdir('fakeforge__mut_dir_SPEC_TEST') do |mut_dir|
@@ -20,18 +20,6 @@ describe Simp::Module::Repoclosure do
           ci.download_pupmod_deps module_dir
           expect(File).to exist( File.join( mut_dir, 'stdlib' ) )
           expect(File).to exist( File.join( mut_dir, 'module01' ) )
-        end
-      end
-    end
-
-    it 'downloads pupmods into the mut directory (git)' do
-      Dir.mktmpdir('fakeforge_spec_test_mut_dir_') do |tut_dir|
-        Dir.mktmpdir('fakeforge__mut_dir_SPEC_TEST') do |mut_dir|
-          module_dir = path_to_mock_module('module02')
-          ci = Simp::Module::Repoclosure.new( tut_dir, mut_dir )
-          ci.download_pupmod_deps module_dir
-          expect(File).to exist( File.join( mut_dir, 'stdlib' ) )
-          expect(File).to exist( File.join( mut_dir, 'module02' ) )
         end
       end
     end
@@ -54,14 +42,29 @@ describe Simp::Module::Repoclosure do
     end
   end
 
-  describe '#do' do
-    context '#using default (mktempdir) `@tut_dir` and `@mut_dir`'
-    it 'does a do!' do
-      m1 = path_to_mock_module('module01')
-      m2 = path_to_mock_module('module02')
-      ci = Simp::Module::Repoclosure.new
-      ci.verbose = 1
-      ci.test_modules([m1,m2])
+  describe '#test_modules' do
+    context '#using unset `@tut_dir` and `@mut_dir` (mktempdir)' do
+      it 'does a do!' do
+        m1 = path_to_mock_module('module01')
+        m2 = path_to_mock_module('module02')
+        ci = Simp::Module::Repoclosure.new
+        ci.verbose = 1
+        ci.test_modules([m1,m2])
+        # FIXME: how to test
+      end
+    end
+
+    context '#using a pre-existing `@tut_dir`' do
+      it 'does a do!' do
+        m1 = path_to_mock_module('module01')
+        m2 = path_to_mock_module('module02')
+        Dir.mktmpdir('fakeforge_tut_dir_') do |tut_dir|
+          ci = Simp::Module::Repoclosure.new( tut_dir )
+          ci.verbose = 1
+          ci.test_modules([m1,m2])
+          # FIXME: how to test
+        end
+      end
     end
   end
 end

@@ -18,6 +18,11 @@ A ~~stupidly~~ admirably direct repoclosure for a Puppet module's `metadata.json
 This gem validates the dependencies declared in a Puppet module's `metadata.json`.
   * It does this by by running `puppet module install` against a local Puppet Forge and saving the results into a temporary `modulepath`.
 
+## TODO
+- [ ] run standalone from `bin`
+- [ ] finish README
+- [ ] if `TEST_FORGE_tarball_dir` is set, don't user `@mut_dir`
+
 ## Setup
 
 ### Beginning with simp-module-repoclosure
@@ -33,11 +38,23 @@ gem 'simp-module-repoclosure'
 
 
 ## Environment variables
+You can set the environment variables `TEST_FORGE_tarball_dir` and
+`TEST_FORGE_module_dir` to use pre-existing diretories of modules
+for the local forge.
+
+### TEST_FORGE_module_dir
+
+### TEST_FORGE_tarball_dir
+
+### TEST_FORGE_port
+
+
+
 
 
 ## Examples
 ```bash
-TEST_FORGE_PORT=8888
+TEST_FORGE_port=8888
 ```
 
 

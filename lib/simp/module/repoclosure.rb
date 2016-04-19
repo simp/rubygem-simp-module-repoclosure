@@ -1,5 +1,4 @@
 require 'simp/module/repoclosure/version'
-require 'simp/module/metadata'
 require 'json'
 require 'yaml'
 require 'pry'
@@ -23,13 +22,11 @@ module Simp
 
         @temp_dirs = []
 
-        # directory containing tarballs for fake forge
+        # directory of tarballs for local forge
         @tut_dir = tut_dir || ENV.fetch('TEST_FORGE_tarball_dir', nil)
 
-        # directory containing modules
+        # directory to keep unarchived module dependencies
         @mut_dir = mut_dir || ENV.fetch('TEST_FORGE_module_dir', nil)
-
-        # TODO: mktempdir
       end
 
       def verbose?( level = 1 )
@@ -41,6 +38,7 @@ module Simp
         Dir.chdir '/tmp'
         tmp_dirs = []
         pupmods  = []
+        mut_dirs = []
 
         begin
           if @tut_dir.nil?
@@ -50,19 +48,30 @@ module Simp
             end
           end
 
+          # set up local forge for tests
+          # -------------------------------------------------------------------
           # get each module's name & dependencies
           module_dirs.each do |module_dir|
             mj_path  = File.expand_path('metadata.json', module_dir)
             metadata = JSON.parse(File.read(mj_path))
             pupmods << metadata.fetch('name')
-            download_pupmod_deps( module_dir )
+
           end
 
-          # build tarballs for local forge
-          mod_dirs = Dir[File.join(@mut_dir,'*')].select{|x| File.directory? x}
-          package_tarballs( mod_dirs )
+          # download dependencies for each pupmod build tarballs for local
+          # forge (unless we have been provided with a tarball directory)
+          if @mut_dir
+            if tmp_dirs.include?( @mut_dir )
+              module_dirs.each do |module_dir|
+                download_pupmod_deps( module_dir )
+              end
+            end
+            mod_dirs = Dir[File.join(@mut_dir,'*')].select{|x| File.directory? x}
+            package_tarballs( mod_dirs )
+          end
 
-          # run tests
+          # test the puppet modules in `module_dirs` against local forge
+          # -------------------------------------------------------------------
           Dir.mktmpdir('fakeforge_pupmod_inst_dir_') do |pupmod_install_dir|
             success = test_with_local_forge( pupmods, pupmod_install_dir )
 puts "success = '#{success}'"
@@ -103,7 +112,10 @@ puts "success = '#{success}'"
               success = system(cmd)
               puts "$? = '#{$?}'"
 puts "success for '#{pupmod}'  = '#{success}'"
+              unless success
+                puts `ls -la "#{@tut_dir}"`
               end
+            end
             raise Parallel::Kill  # stops both Parallels
           end
         end
@@ -121,8 +133,7 @@ puts "success = '#{success}'"
         puts cmd if verbose?
         tgz = `#{cmd}`.split("\n").last.gsub('"','')
         puts "built module archive: #{tgz}" if verbose?
-
-        cmd = "puppet module install #{tgz} " + 
+        cmd = "puppet module install #{tgz} " +
               "--module_repository=#{@upstream_puppet_forge} " +
               "--modulepath=#{@mut_dir}  --target-dir=#{@mut_dir}"
         puts cmd if verbose?
