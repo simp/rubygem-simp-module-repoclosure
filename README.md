@@ -37,7 +37,7 @@ gem 'simp-module-repoclosure'
 
 ## Examples
 ```bash
-TEMP_FORGE_PORT=8888
+TEST_FORGE_PORT=8888
 ```
 
 
