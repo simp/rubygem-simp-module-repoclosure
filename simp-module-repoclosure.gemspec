@@ -33,9 +33,8 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency 'rake',    '~> 10.0'
   gem.add_development_dependency 'rspec',   '~> 3.0'
   gem.add_development_dependency 'yard',    '~> 0.8'
-  #gem.add_runtime_dependency     'r10k',    '~> 2.2'
   gem.add_runtime_dependency     'puppet'
   gem.add_runtime_dependency     'parallel', '~> 1.8'
   gem.add_runtime_dependency     'puppet-forge-server', '~> 1.9'
-  gem.add_runtime_dependency     'librarian-puppet-pr328', '~> 2.2'
+  gem.add_runtime_dependency     'colorize', '~> 0.7'
 end

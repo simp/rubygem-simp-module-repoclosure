@@ -11,15 +11,15 @@ describe Simp::Module::Repoclosure do
     expect(Simp::Module::Repoclosure.const_get('VERSION')).to_not be_empty
   end
 
-  describe '#download_pupmod_deps' do
-    it 'downloads pupmod deps into the mut directory' do
+  describe '#download_mut_deps' do
+    it 'downloads pupmod deps into the mods directory' do
       module_dir = path_to_mock_module('module01')
-      Dir.mktmpdir('fakeforge_spec_test_mut_dir_') do |tut_dir|
-        Dir.mktmpdir('fakeforge__mut_dir_SPEC_TEST') do |mut_dir|
-          ci = Simp::Module::Repoclosure.new( tut_dir, mut_dir )
-          ci.download_pupmod_deps module_dir
-          expect(File).to exist( File.join( mut_dir, 'stdlib' ) )
-          expect(File).to exist( File.join( mut_dir, 'module01' ) )
+      Dir.mktmpdir('fakeforge_spec_test_mods_dir_') do |tars_dir|
+        Dir.mktmpdir('fakeforge__mods_dir_SPEC_TEST') do |mods_dir|
+          ci = Simp::Module::Repoclosure.new( tars_dir, mods_dir )
+          ci.download_mut_deps module_dir
+          expect(File).to exist( File.join( mods_dir, 'stdlib' ) )
+          expect(File).to exist( File.join( mods_dir, 'module01' ) )
         end
       end
     end
@@ -29,39 +29,38 @@ describe Simp::Module::Repoclosure do
     it 'places tarballs into the destination directory' do
 
       m1 = path_to_mock_module('module01')
-      Dir.mktmpdir('fakeforge_spec_test_mut_dir_') do |mut_dir|
-        tmp_m1 = File.join(mut_dir, 'module01')
+      Dir.mktmpdir('fakeforge_spec_test_mods_dir_') do |mods_dir|
+        tmp_m1 = File.join(mods_dir, 'module01')
         FileUtils.cp_r m1, tmp_m1
 
-        Dir.mktmpdir('fakeforge_tut_dir_') do |tut_dir|
-          ci = Simp::Module::Repoclosure.new(tut_dir)
+        Dir.mktmpdir('fakeforge_tars_dir_') do |tars_dir|
+          ci = Simp::Module::Repoclosure.new(tars_dir)
           ci.package_tarballs([tmp_m1])
-          expect(File).to exist(File.join(tut_dir, 'test-module01-0.1.0.tar.gz'))
+          expect(File).to exist(File.join(tars_dir, 'test-module01-0.1.0.tar.gz'))
         end
       end
     end
   end
 
   describe '#test_modules' do
-    context '#using unset `@tut_dir` and `@mut_dir` (mktempdir)' do
+    context '#using unset `@tars_dir` and `@mods_dir` (mktempdir)' do
       it 'does a do!' do
         m1 = path_to_mock_module('module01')
-        m2 = path_to_mock_module('module02')
         ci = Simp::Module::Repoclosure.new
         ci.verbose = 1
-        ci.test_modules([m1,m2])
+        ci.test_modules([m1])
+        # FIXME: fails because the modss aren't built and copied into the tars_dir
         # FIXME: how to test
       end
     end
 
-    context '#using a pre-existing `@tut_dir`' do
+    context '#using a pre-existing `@tars_dir`' do
       it 'does a do!' do
         m1 = path_to_mock_module('module01')
-        m2 = path_to_mock_module('module02')
-        Dir.mktmpdir('fakeforge_tut_dir_') do |tut_dir|
-          ci = Simp::Module::Repoclosure.new( tut_dir )
+        Dir.mktmpdir('fakeforge_tars_dir_') do |tars_dir|
+          ci = Simp::Module::Repoclosure.new( tars_dir )
           ci.verbose = 1
-          ci.test_modules([m1,m2])
+          ci.test_modules([m1])
           # FIXME: how to test
         end
       end

@@ -6,75 +6,79 @@ require 'tmpdir'
 require 'fileutils'
 require 'puppet_forge_server'
 require 'parallel'
+require 'colorize'
 
 module Simp
   module Module
     class Repoclosure
       attr_accessor :verbose, :port
-      def initialize( tut_dir = nil, mut_dir = nil )
+      def initialize( tars_dir = nil, mods_dir = nil )
 
-        # URL of Puppet Forge to provide upstream dependencies
-        @upstream_puppet_forge='https://forgeapi.puppetlabs.com'
-
-
+        # URL of upstream Puppet Forge to provide deps served by the test forge
+        #
+        # NOTE: The upstream forge will not be used if either of the env vars
+        # `TEST_FORGE_mods_dir` or `TEST_FORGE_tars_dir` are present.
+        @upstream_puppet_forge=  ENV.fetch('TEST_FORGE_deps_forge',
+                                           'https://forgeapi.puppetlabs.com')
         @verbose = ENV.fetch('VERBOSE', 0).to_i
         @port    = ENV['TEST_FORGE_port'] || 8080
 
-        @temp_dirs = []
-
         # directory of tarballs for local forge
-        @tut_dir = tut_dir || ENV.fetch('TEST_FORGE_tarball_dir', nil)
+        @tars_dir = tars_dir || ENV.fetch('TEST_FORGE_tars_dir', nil)
 
         # directory to keep unarchived module dependencies
-        @mut_dir = mut_dir || ENV.fetch('TEST_FORGE_module_dir', nil)
+        @mods_dir = mods_dir || ENV.fetch('TEST_FORGE_mods_dir', nil)
       end
 
       def verbose?( level = 1 )
         @verbose >= level
       end
 
+      def v1( msg, level = 1 )
+        puts msg.colorize( :blue ) if verbose? 1
+      end
 
-      def test_modules( module_dirs )
-        Dir.chdir '/tmp'
-        tmp_dirs = []
-        pupmods  = []
-        mut_dirs = []
+
+      # mut_dirs = Array of (String) diectory paths to each module-to-test
+      def test_modules( mut_dirs )
+        Dir.chdir '/tmp' # ensure we start in a real directory
+        tmp_dirs = []    # a list of directories we need to ensure are removed
+        muts = []        # a list of forge names for MUTs
 
         begin
-          if @tut_dir.nil?
-            tmp_dirs << @tut_dir = Dir.mktmpdir('fakeforge_tut_dir_')
-            if @mut_dir.nil?
-              tmp_dirs << @mut_dir = Dir.mktmpdir('fakeforge_mut_dir_')
+          if @tars_dir.nil?
+            tmp_dirs << @tars_dir = Dir.mktmpdir('fakeforge_tars_dir_')
+            if @mods_dir.nil?
+              tmp_dirs << @mods_dir = Dir.mktmpdir('fakeforge_mods_dir_')
             end
           end
 
-          # set up local forge for tests
+          # prepare a local forge to test against
           # -------------------------------------------------------------------
-          # get each module's name & dependencies
-          module_dirs.each do |module_dir|
+          # gather each module's forge name
+          mut_dirs.each do |module_dir|
             mj_path  = File.expand_path('metadata.json', module_dir)
             metadata = JSON.parse(File.read(mj_path))
-            pupmods << metadata.fetch('name')
-
+            muts << metadata.fetch('name')
           end
 
           # download dependencies for each pupmod build tarballs for local
           # forge (unless we have been provided with a tarball directory)
-          if @mut_dir
-            if tmp_dirs.include?( @mut_dir )
-              module_dirs.each do |module_dir|
-                download_pupmod_deps( module_dir )
+          if @mods_dir
+            if tmp_dirs.include?( @mods_dir )
+              mut_dirs.each do |module_dir|
+                download_mut_deps( module_dir )
               end
             end
-            mod_dirs = Dir[File.join(@mut_dir,'*')].select{|x| File.directory? x}
+            mod_dirs = Dir[File.join(@mods_dir,'*')].select{|x| File.directory? x}
             package_tarballs( mod_dirs )
           end
 
-          # test the puppet modules in `module_dirs` against local forge
+          # test the puppet modules in `mut_dirs` against local forge
           # -------------------------------------------------------------------
           Dir.mktmpdir('fakeforge_pupmod_inst_dir_') do |pupmod_install_dir|
-            success = test_with_local_forge( pupmods, pupmod_install_dir )
-puts "success = '#{success}'"
+            success = test_with_local_forge( muts, pupmod_install_dir )
+v1 "success (pupmod_install_dir) = '#{success}'"
           end
 
         ensure
@@ -86,47 +90,57 @@ puts "success = '#{success}'"
       end
 
 
-      def test_with_local_forge( pupmods, pupmod_install_dir )
+      def test_with_local_forge( muts, pupmod_install_dir )
         pidfile = File.join(pupmod_install_dir,'fakeforge.pidfile')
         success = false
 
         Parallel.map([:process_1,:process_2], in_processes: 2) do |x|
           Dir.chdir '/tmp'
           if x == :process_1
-            puts "Starting fake forge (module-dir: '#{@tut_dir}'  pidfile: '#{pidfile}'"
-            PuppetForgeServer::Server.new.go([
-              '--port', @port,
-              '--bind', 'localhost',
-              '--module-dir', @tut_dir,
-              '--pidfile', pidfile
-            ])
+            start_local_forge(pidfile)
           elsif x == :process_2
             sleep 5  # safety wait for forge to spin up (never needed yet)
-
-            pupmods.each do |pupmod|
-              cmd = "puppet module install #{pupmod} " +
-                    "--module_repository=http://localhost:#{@port} " +
-                    "--modulepath=#{pupmod_install_dir}  " +
-                    "--target-dir=#{pupmod_install_dir}"
-              puts "RUNNING TEST: `#{cmd}`" if verbose?
-              success = system(cmd)
-              puts "$? = '#{$?}'"
-puts "success for '#{pupmod}'  = '#{success}'"
-              unless success
-                puts `ls -la "#{@tut_dir}"`
-              end
-            end
+            success = test_install(muts, pupmod_install_dir)
             raise Parallel::Kill  # stops both Parallels
           end
         end
-puts "success = '#{success}'"
+v1 "success = '#{success}'"
         return success
       end
 
+      # Starts a local puppet forge on port `@port`.
+      def start_local_forge(pidfile)
+        puts "Starting fake forge (module-dir: '#{@tars_dir}'  pidfile: '#{pidfile}'"
+        PuppetForgeServer::Server.new.go([
+          '--port', @port,
+          '--bind', 'localhost',
+          '--module-dir', @tars_dir,
+          '--pidfile', pidfile
+        ])
+      end
 
-      # download all of the module's (declared) dependencies from an
-      # upstream puppet forge into `@mut_dir/`
-      def download_pupmod_deps( module_dir )
+      def test_install( muts, pupmod_install_dir )
+        success = false
+        muts.each do |mut|
+          cmd = "puppet module install #{mut} " +
+                "--module_repository=http://localhost:#{@port} " +
+                "--modulepath=#{pupmod_install_dir}  " +
+                "--target-dir=#{pupmod_install_dir}"
+          ###puts "RUNNING TEST: `#{cmd}`" if verbose?
+          v1 "RUNNING TEST: `#{cmd}`"
+          success = system(cmd)
+          puts "$? = '#{$?}'"
+v1 "success for '#{mut}'  = '#{success}'"
+          unless success
+            puts `ls -la "#{@tars_dir}"`
+          end
+        end
+        success
+      end
+
+      # download all of the MUT's (declared) dependencies from an upstream
+      # puppet forge into `@mods_dir/`
+      def download_mut_deps( module_dir )
         # build a puppet module_dir into an archive
         FileUtils.chdir module_dir, :verbose => verbose?
         cmd = "puppet module build  --render-as=json"
@@ -135,17 +149,18 @@ puts "success = '#{success}'"
         puts "built module archive: #{tgz}" if verbose?
         cmd = "puppet module install #{tgz} " +
               "--module_repository=#{@upstream_puppet_forge} " +
-              "--modulepath=#{@mut_dir}  --target-dir=#{@mut_dir}"
-        puts cmd if verbose?
+              "--modulepath=#{@mods_dir}  --target-dir=#{@mods_dir}"
+        v1 cmd
         out = `#{cmd}`
-        puts out if verbose?
+        v1 out
       end
 
 
       # build a tarball of each module in a directory of modules
-      def package_tarballs( mod_dir_list )
+      # mods_dirs = Array of paths to directories of modules
+      def package_tarballs( mods_dirs )
         pwd = Dir.pwd
-        mod_dir_list.each do |module_dir|
+        mods_dirs.each do |module_dir|
           next unless File.directory? module_dir
           FileUtils.chdir module_dir, :verbose => (verbose?)
 
@@ -153,7 +168,7 @@ puts "success = '#{success}'"
           puts cmd if verbose?
           tgz = `#{cmd}`.split("\n").last.gsub('"','')
           puts "--[tgz] built module archive: #{tgz}" if verbose?
-          FileUtils.cp tgz, @tut_dir, :verbose => verbose?
+          FileUtils.cp tgz, @tars_dir, :verbose => verbose?
         end
         FileUtils.chdir pwd, :verbose => verbose?
       end
