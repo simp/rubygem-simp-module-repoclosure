@@ -45,7 +45,7 @@ describe Simp::Module::Repoclosure do
 
   describe '#test_modules' do
     context '#using a pre-existing `@mods_dir`' do
-      it 'does a do!' do
+      it 'succeeds with a complete and correct dependency chain' do
         m1 = path_to_mock_module('mut1')
         d1 = path_to_mock_module('dep1')
         d2 = path_to_mock_module('dep2')
@@ -55,9 +55,39 @@ describe Simp::Module::Repoclosure do
           end
           Dir.mktmpdir('fakeforge_spec_test_tars_dir_') do |tars_dir|
             ci = Simp::Module::Repoclosure.new( tars_dir, mods_dir )
-            ci.verbose = 0
             result = ci.test_modules([m1])
             expect( result ).to eq true
+          end
+        end
+      end
+
+      it 'fails when a dep is missing from the forge' do
+        m1 = path_to_mock_module('mut1')
+        Dir.mktmpdir('fakeforge_spec_test_mods_dir_') do |mods_dir|
+          [m1].each do |p|
+            FileUtils.cp_r(p, File.join(mods_dir,File.basename(p)))
+          end
+          Dir.mktmpdir('fakeforge_spec_test_tars_dir_') do |tars_dir|
+            ci = Simp::Module::Repoclosure.new( tars_dir, mods_dir )
+            result = ci.test_modules([m1])
+            expect( result ).to eq false
+          end
+        end
+      end
+
+      it 'fails when dep have conflicts' do
+        m2 = path_to_mock_module('mut2')
+        d3 = path_to_mock_module('dep3')
+        d4 = path_to_mock_module('dep4')
+        Dir.mktmpdir('fakeforge_spec_test_mods_dir_') do |mods_dir|
+          [m2,d3,d4].each do |p|
+            FileUtils.cp_r(p, File.join(mods_dir,File.basename(p)))
+          end
+          Dir.mktmpdir('fakeforge_spec_test_tars_dir_') do |tars_dir|
+            ci = Simp::Module::Repoclosure.new( tars_dir, mods_dir )
+            ci.verbose = 1
+            result = ci.test_modules([m2])
+            expect( result ).to eq false
           end
         end
       end

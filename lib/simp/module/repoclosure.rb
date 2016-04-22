@@ -82,7 +82,6 @@ module Simp
           # -------------------------------------------------------------------
           Dir.mktmpdir('fakeforge_pupmod_inst_dir_') do |pupmod_install_dir|
             success = test_with_local_forge( muts, pupmod_install_dir )
-v1 "success (pupmod_install_dir) = '#{success}'"
           end
 
         ensure
@@ -130,7 +129,6 @@ v1 "success (pupmod_install_dir) = '#{success}'"
           success = false
         end
 
-v1 "success = '#{success}'"
         return success
       end
 
@@ -156,7 +154,6 @@ v1 "success = '#{success}'"
           v1 "RUNNING TEST: `#{cmd}`"
           success = system(cmd)
           puts "$? = '#{$?}'"; puts "xxx success='#{success}'"
-v1 "success for '#{mut}'  = '#{success}'"
           unless success
             puts ("mods_dir: " + @mods_dir.rjust(79)).colorize(:background => :red)
             puts `ls -la "#{@tars_dir}"`

@@ -8,7 +8,7 @@
   "project_page": null,
   "issues_url": null,
   "dependencies": [
-    {"name":"test-dep3","version_requirement":"= 0.1.0"}
+    {"name":"test-dep3","version_requirement":"0.1.0"}
   ],
   "data_provider": null
 }
