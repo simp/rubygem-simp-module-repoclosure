@@ -1,0 +1,15 @@
+{
+  "name": "test-dep4",
+  "version": "0.1.0",
+  "author": "test",
+  "summary": "Test Dep (deps conflict with mut2)",
+  "license": "Apache-2.0",
+  "source": "",
+  "project_page": null,
+  "issues_url": null,
+  "dependencies": [
+    {"name":"test-dep3","version_requirement":"= 0.1.0"}
+  ],
+  "data_provider": null
+}
+

@@ -1,0 +1,15 @@
+{
+  "name": "test-dep1",
+  "version": "0.1.0",
+  "author": "test",
+  "summary": "Test Dep",
+  "license": "Apache-2.0",
+  "source": "",
+  "project_page": null,
+  "issues_url": null,
+  "dependencies": [
+    {"name":"test-dep2","version_requirement":">= 0.1.0"}
+  ],
+  "data_provider": null
+}
+

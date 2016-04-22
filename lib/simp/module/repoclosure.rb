@@ -62,8 +62,8 @@ module Simp
             muts << metadata.fetch('name')
           end
 
-          # download dependencies for each pupmod build tarballs for local
-          # forge (unless we have been provided with a tarball directory)
+          # - download deps for each MUT (unless provided with a mods_dir)
+          # - build tars from each MUT/dep (unless provided with a tars_dir)
           if @mods_dir
             if tmp_dirs.include?( @mods_dir )
               mut_dirs.each do |module_dir|
@@ -94,13 +94,16 @@ v1 "success (pupmod_install_dir) = '#{success}'"
         pidfile = File.join(pupmod_install_dir,'fakeforge.pidfile')
         success = false
 
-        Parallel.map([:process_1,:process_2], in_processes: 2) do |x|
+        Parallel.map([:forge,:mut_installer,:process_timeout], in_processes: 3) do |x|
           Dir.chdir '/tmp'
-          if x == :process_1
+          if x == :forge
             start_local_forge(pidfile)
-          elsif x == :process_2
+          elsif x == :mut_installer
             sleep 5  # safety wait for forge to spin up (never needed yet)
             success = test_install(muts, pupmod_install_dir)
+            raise Parallel::Kill  # stops both Parallels
+          elsif x == :process_timeout
+            sleep 300
             raise Parallel::Kill  # stops both Parallels
           end
         end
@@ -126,12 +129,14 @@ v1 "success = '#{success}'"
                 "--module_repository=http://localhost:#{@port} " +
                 "--modulepath=#{pupmod_install_dir}  " +
                 "--target-dir=#{pupmod_install_dir}"
-          ###puts "RUNNING TEST: `#{cmd}`" if verbose?
           v1 "RUNNING TEST: `#{cmd}`"
           success = system(cmd)
           puts "$? = '#{$?}'"
 v1 "success for '#{mut}'  = '#{success}'"
           unless success
+            puts ("mods_dir: " + @mods_dir.rjust(79)).colorize(:background => :red)
+            puts `ls -la "#{@tars_dir}"`
+            puts ("tars_dir: " + @tars_dir.rjust(79)).colorize(:background => :red)
             puts `ls -la "#{@tars_dir}"`
           end
         end
@@ -140,9 +145,8 @@ v1 "success for '#{mut}'  = '#{success}'"
 
       # download all of the MUT's (declared) dependencies from an upstream
       # puppet forge into `@mods_dir/`
-      def download_mut_deps( module_dir )
-        # build a puppet module_dir into an archive
-        FileUtils.chdir module_dir, :verbose => verbose?
+      def download_mut_deps( mut_dir )
+        FileUtils.chdir mut_dir, :verbose => verbose?
         cmd = "puppet module build  --render-as=json"
         puts cmd if verbose?
         tgz = `#{cmd}`.split("\n").last.gsub('"','')
@@ -153,10 +157,13 @@ v1 "success for '#{mut}'  = '#{success}'"
         v1 cmd
         out = `#{cmd}`
         v1 out
+
+        # add the
+        FileUtils.cp tgz, @tars_dir, :verbose => verbose?
       end
 
 
-      # build a tarball of each module in a directory of modules
+      # build a tarball of each module (in a directory of modules)
       # mods_dirs = Array of paths to directories of modules
       def package_tarballs( mods_dirs )
         pwd = Dir.pwd
