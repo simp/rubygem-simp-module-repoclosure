@@ -11,7 +11,7 @@ describe Simp::Module::Repoclosure do
     expect(Simp::Module::Repoclosure.const_get('VERSION')).to_not be_empty
   end
 
-### FIXME: optional stdlib test
+### FIXME: optional stdlib test from real puppet forge
 ###  describe '#download_mut_deps' do
 ###    it 'downloads pupmod deps into the mods directory' do
 ###      module_dir = path_to_mock_module('mut1')
@@ -55,6 +55,7 @@ describe Simp::Module::Repoclosure do
           end
           Dir.mktmpdir('fakeforge_spec_test_tars_dir_') do |tars_dir|
             ci = Simp::Module::Repoclosure.new( tars_dir, mods_dir )
+            ci.verbose = 1
             result = ci.test_modules([m1])
             expect( result ).to eq true
           end

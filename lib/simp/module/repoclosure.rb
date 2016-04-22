@@ -11,7 +11,7 @@ require 'colorize'
 module Simp
   module Module
     class Repoclosure
-      attr_accessor :verbose, :port
+      attr_accessor :verbose, :port, :upstream_puppet_forge
       def initialize( tars_dir = nil, mods_dir = nil )
 
         # URL of upstream Puppet Forge to provide deps served by the test forge
