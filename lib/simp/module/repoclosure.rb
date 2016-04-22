@@ -28,6 +28,9 @@ module Simp
 
         # directory to keep unarchived module dependencies
         @mods_dir = mods_dir || ENV.fetch('TEST_FORGE_mods_dir', nil)
+
+        @startup_delay = 5 # seconds to wait for forge to start before testing
+        @parallel_timeout = 300 # seconds to wait before killing all processes
       end
 
       def verbose?( level = 1 )
@@ -44,6 +47,7 @@ module Simp
         Dir.chdir '/tmp' # ensure we start in a real directory
         tmp_dirs = []    # a list of directories we need to ensure are removed
         muts = []        # a list of forge names for MUTs
+        success = false
 
         begin
           if @tars_dir.nil?
@@ -87,6 +91,7 @@ v1 "success (pupmod_install_dir) = '#{success}'"
             FileUtils.remove_entry dir, :verbose => verbose?
           end
         end
+        success
       end
 
 
@@ -99,14 +104,32 @@ v1 "success (pupmod_install_dir) = '#{success}'"
           if x == :forge
             start_local_forge(pidfile)
           elsif x == :mut_installer
-            sleep 5  # safety wait for forge to spin up (never needed yet)
+            sleep @startup_delay  # safety wait for forge to spin up (never needed yet)
             success = test_install(muts, pupmod_install_dir)
             raise Parallel::Kill  # stops both Parallels
           elsif x == :process_timeout
-            sleep 300
+            sleep @parallel_timeout 
             raise Parallel::Kill  # stops both Parallels
           end
         end
+        report_files = Dir[File.join( pupmod_install_dir, "*.result.yaml")]
+
+        reports = []
+        report_files.each do |report_file|
+          report = YAML.load_file report_file
+          reports << report.fetch(:success)
+        end
+        reports.uniq!
+        if reports.size == 1 && reports.first == true
+          success = true
+        end
+
+        if report_files.empty?
+          warn "WARNING: no test reports were generated in '#{pupmod_install_dir}'"
+          warn "WARNING: (cont'd) marking test as `failed`"
+          success = false
+        end
+
 v1 "success = '#{success}'"
         return success
       end
@@ -125,13 +148,14 @@ v1 "success = '#{success}'"
       def test_install( muts, pupmod_install_dir )
         success = false
         muts.each do |mut|
+          report_file = File.join( pupmod_install_dir, "#{mut}.result.yaml" )
           cmd = "puppet module install #{mut} " +
                 "--module_repository=http://localhost:#{@port} " +
                 "--modulepath=#{pupmod_install_dir}  " +
                 "--target-dir=#{pupmod_install_dir}"
           v1 "RUNNING TEST: `#{cmd}`"
           success = system(cmd)
-          puts "$? = '#{$?}'"
+          puts "$? = '#{$?}'"; puts "xxx success='#{success}'"
 v1 "success for '#{mut}'  = '#{success}'"
           unless success
             puts ("mods_dir: " + @mods_dir.rjust(79)).colorize(:background => :red)
@@ -139,6 +163,8 @@ v1 "success for '#{mut}'  = '#{success}'"
             puts ("tars_dir: " + @tars_dir.rjust(79)).colorize(:background => :red)
             puts `ls -la "#{@tars_dir}"`
           end
+          report = {:success => success, :cmd=>cmd, :output=>'tbd'}
+          File.open(report_file,'w'){|f| f.puts report.to_yaml }
         end
         success
       end

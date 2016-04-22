@@ -57,7 +57,7 @@ describe Simp::Module::Repoclosure do
             ci = Simp::Module::Repoclosure.new( tars_dir, mods_dir )
             ci.verbose = 0
             result = ci.test_modules([m1])
-            #expect( result ).to eq false
+            expect( result ).to eq true
           end
         end
       end
